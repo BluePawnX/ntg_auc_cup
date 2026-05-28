@@ -1,0 +1,33 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Env / secrets (never commit real credentials)
+.env
+.env.local
+.env.*.local
+**/.env
+!.env.example
+!**/.env.example
+
+# Build outputs
+dist/
+build/
+client/dist/
+*.log
+npm-debug.log*
+
+# Editor / OS
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Test artifacts
+coverage/
+*.tmp
+*.cache
+
+# Local secrets / deploy notes — NEVER push these
+DEPLOY_CREDS.md
+*.secret

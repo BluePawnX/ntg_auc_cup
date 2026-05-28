@@ -1,0 +1,15 @@
+NTG Auction Rehearsal Report
+2026-05-26T11:11:26.385Z
+
+REHEARSAL PASSED — 10/10 checks passed · 23 sold · 7 unsold
+
+[PASS] all 10 captains connected and received state
+[PASS] captain resyncs full state after reconnect
+[PASS] reserve rule rejects a bid above safe maximum
+[PASS] simultaneous identical bids: exactly one wins
+[PASS] undo refunds the winning team
+[PASS] undo frees the roster slot
+[PASS] no budget/roster invariant was ever violated
+[PASS] every team budget reconciles with its purchases
+[PASS] no team exceeds its roster size
+[PASS] pass 2 ran: no unsold players left stuck in the pool when teams had room

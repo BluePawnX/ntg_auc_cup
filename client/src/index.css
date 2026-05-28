@@ -1,0 +1,56 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html, body, #root { height: 100%; }
+  body {
+    @apply bg-ink-950 text-slate-100 font-sans antialiased;
+    -webkit-tap-highlight-color: transparent;
+    background-image:
+      radial-gradient(900px 520px at 85% -12%, rgba(255, 70, 85, 0.16), transparent 60%),
+      radial-gradient(720px 520px at -5% 108%, rgba(255, 122, 69, 0.10), transparent 55%);
+    background-attachment: fixed;
+  }
+  input, button, select, textarea { font-size: 16px; }
+  ::selection { background: rgba(255, 70, 85, 0.35); }
+  *::-webkit-scrollbar { width: 10px; height: 10px; }
+  *::-webkit-scrollbar-track { background: transparent; }
+  *::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.08); border-radius: 999px; }
+  *::-webkit-scrollbar-thumb:hover { background: rgba(255, 70, 85, 0.45); }
+}
+
+@layer components {
+  .panel { @apply bg-ink-800/70 border border-white/5 rounded-2xl backdrop-blur-xl shadow-ring; }
+  .card { @apply bg-ink-700/55 border border-white/5 rounded-2xl backdrop-blur-md; }
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl font-semibold px-4 py-2
+           transition-all duration-150 active:scale-[0.97] disabled:opacity-40
+           disabled:cursor-not-allowed select-none;
+  }
+  .btn-accent { @apply btn text-white bg-accent-grad shadow-glow hover:shadow-glowsoft hover:brightness-110; }
+  .btn-ghost { @apply btn bg-white/5 hover:bg-white/10 text-slate-100 border border-white/5; }
+  .chip { @apply inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium; }
+  .label { @apply text-[11px] uppercase tracking-[0.14em] text-muted; }
+  .glass { @apply bg-white/5 border border-white/10 backdrop-blur-xl; }
+  .gradient-text { @apply bg-accent-text bg-clip-text text-transparent; }
+  .input {
+    @apply w-full rounded-xl bg-ink-700/70 border border-white/10 px-3 py-2 outline-none
+           transition focus:border-accent focus:ring-2 focus:ring-accent/30;
+  }
+}
+
+@layer utilities {
+  .hover-lift { @apply transition-transform duration-200 will-change-transform hover:-translate-y-1; }
+  .reveal { animation: fadeUp 0.6s cubic-bezier(0.22, 1, 0.36, 1) both; }
+  .grid-bg {
+    background-image:
+      linear-gradient(rgba(255, 255, 255, 0.045) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255, 255, 255, 0.045) 1px, transparent 1px);
+    background-size: 44px 44px;
+  }
+  .blob {
+    position: absolute; border-radius: 9999px; filter: blur(60px); opacity: 0.5;
+    pointer-events: none;
+  }
+}

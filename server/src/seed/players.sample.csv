@@ -1,0 +1,51 @@
+name,inGameName,phone,rank,role,gameStyle,photoUrl,isCore,team,isCaptain
+Specter,Specter#NF01,055-1000001,Radiant,Duelist,"Aggressive entry fragger who creates space on every push.",,true,Nightfall,true
+Vortex,Vortex#NF02,055-1000002,Immortal,Controller,"Patient smoke lineups and disciplined mid control.",,true,Nightfall,false
+Talon,Talon#VG01,055-1000003,Immortal,Sentinel,"Lockdown anchor; never gives a free retake.",,true,Vanguard,true
+Rampart,Rampart#VG02,055-1000004,Diamond,Initiator,"Flash-heavy support that sets up clean executes.",,true,Vanguard,false
+Zephyr,Zephyr#AO01,055-1000005,Radiant,Initiator,"Reads rotations early and calls confident mid-rounds.",,true,Apex Order,true
+Glaive,Glaive#AO02,055-1000006,Ascendant,Duelist,"Mechanical duelist with a deadly operator.",,true,Apex Order,false
+Surge,Surge#SB01,055-1000007,Immortal,Duelist,"Fast-paced dasher who punishes slow defenses.",,true,Stormbreak,true
+Static,Static#SB02,055-1000008,Diamond,Controller,"Methodical map control and reliable post-plant smokes.",,true,Stormbreak,false
+Umbra,Umbra#EC01,055-1000009,Ascendant,Controller,"One-way smokes and tight default setups.",,true,Eclipse,true
+Lumen,Lumen#EC02,055-1000010,Diamond,Sentinel,"Information-focused trapper who slows every flank.",,true,Eclipse,false
+Katana,Katana#RN01,055-1000011,Immortal,Flex,"Fills any role; shines as a secondary entry.",,true,Ronin,true
+Tanto,Tanto#RN02,055-1000012,Ascendant,Initiator,"Recon darts and disciplined utility timing.",,true,Ronin,false
+Gale,Gale#TP01,055-1000013,Radiant,Duelist,"Explosive opening duels and confident clutches.",,true,Tempest,true
+Monsoon,Monsoon#TP02,055-1000014,Immortal,Sentinel,"Site anchor with a sharp retake sense.",,true,Tempest,false
+Wraith,Wraith#PU01,055-1000015,Immortal,Initiator,"Aggressive flashes that crack open held angles.",,true,Phantom Unit,true
+Shade,Shade#PU02,055-1000016,Diamond,Duelist,"Patient duelist who trades efficiently.",,true,Phantom Unit,false
+Bastion,Bastion#IC01,055-1000017,Ascendant,Sentinel,"Defensive backbone; holds sites alone.",,true,Ironclad,true
+Bulwark,Bulwark#IC02,055-1000018,Diamond,Controller,"Steady smokes and selfless utility usage.",,true,Ironclad,false
+Fata,Fata#MR01,055-1000019,Immortal,Controller,"Creative smoke timings and strong IGL instincts.",,true,Mirage,true
+Oasis,Oasis#MR02,055-1000020,Diamond,Initiator,"Setup-oriented support with crisp comms.",,true,Mirage,false
+Riser,Riser#3201,055-2000001,Diamond,Duelist,"Hungry entry who loves opening picks.",,false,,
+Cinder,Cinder#3202,055-2000002,Platinum,Controller,"Solid smokes; learning advanced lineups.",,false,,
+Echo,Echo#3203,055-2000003,Ascendant,Initiator,"Recon specialist with great timing.",,false,,
+Frost,Frost#3204,055-2000004,Diamond,Sentinel,"Calm anchor who rarely panics.",,false,,
+Havoc,Havoc#3205,055-2000005,Immortal,Duelist,"High-ceiling fragger on a hot day.",,false,,
+Jolt,Jolt#3206,055-2000006,Gold,Initiator,"Energetic support, improving fast.",,false,,
+Karma,Karma#3207,055-2000007,Platinum,Sentinel,"Trap-savvy and patient.",,false,,
+Lurk,Lurk#3208,055-2000008,Diamond,Controller,"Flank-watch master and quiet rotator.",,false,,
+Mako,Mako#3209,055-2000009,Ascendant,Duelist,"Operator threat on defense.",,false,,
+Nova,Nova#3210,055-2000010,Radiant,Duelist,"Star-level aim; a bidding-war centerpiece.",,false,,
+Onyx,Onyx#3211,055-2000011,Gold,Controller,"Dependable smokes for a budget pick.",,false,,
+Pulse,Pulse#3212,055-2000012,Platinum,Duelist,"Aggressive but raw; high upside.",,false,,
+Quill,Quill#3213,055-2000013,Silver,Initiator,"Eager learner, great attitude.",,false,,
+Rogue,Rogue#3214,055-2000014,Diamond,Initiator,"Clean utility and trade discipline.",,false,,
+Saber,Saber#3215,055-2000015,Immortal,Sentinel,"Lockdown sentinel with retake IQ.",,false,,
+Tide,Tide#3216,055-2000016,Platinum,Controller,"Methodical and consistent.",,false,,
+Vex,Vex#3217,055-2000017,Ascendant,Duelist,"Flashy plays and confident peeks.",,false,,
+Wisp,Wisp#3218,055-2000018,Gold,Sentinel,"Steady budget anchor.",,false,,
+Xeno,Xeno#3219,055-2000019,Diamond,Flex,"Plays everything; valuable glue.",,false,,
+Yuki,Yuki#3220,055-2000020,Platinum,Initiator,"Reliable flashes and recon.",,false,,
+Zen,Zen#3221,055-2000021,Ascendant,Controller,"Cerebral smoker and shot-caller.",,false,,
+Ash,Ash#3222,055-2000022,Bronze,Duelist,"Raw but fearless; a project pick.",,false,,
+Blitz,Blitz#3223,055-2000023,Diamond,Duelist,"Quick reflexes and aggressive timing.",,false,,
+Crow,Crow#3224,055-2000024,Gold,Initiator,"Sneaky info plays.",,false,,
+Drift,Drift#3225,055-2000025,Platinum,Sentinel,"Patient and positional.",,false,,
+Ember,Ember#3226,055-2000026,Diamond,Controller,"Strong defaults and post-plants.",,false,,
+Flux,Flux#3227,055-2000027,Silver,Duelist,"Bold entries, needs polish.",,false,,
+Grit,Grit#3228,055-2000028,Iron,Sentinel,"Pure grit; a true underdog flier.",,false,,
+Halo,Halo#3229,055-2000029,Ascendant,Initiator,"Bright support with strong comms.",,false,,
+Ion,Ion#3230,055-2000030,Gold,Controller,"Dependable smokes on a budget.",,false,,

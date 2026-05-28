@@ -1,0 +1,63 @@
+NTG Platform — End-to-End Test Report
+2026-05-27T16:06:20.194Z
+
+E2E PASSED — 58/58 checks passed
+
+[PASS] auth: wrong password rejected (401)
+[PASS] auth: missing password rejected (400)
+[PASS] auth: valid admin login (200 + token)
+[PASS] auth: /me with valid token returns account
+[PASS] auth: /me with bad token rejected (401)
+[PASS] auth: protected route without token rejected (401)
+[PASS] data: tournaments list returns >=1
+[PASS] data: 10 teams seeded
+[PASS] data: 50 players seeded (20 cores + 30 pool)
+[PASS] data: 30 auctionable pool players
+[PASS] data: budget ladder spans 81..118 (real economy)
+[PASS] economy: edit applies + recomputes (pre-auction)
+[PASS] economy: Gold floor recomputed to the new value
+[PASS] auction: captain login works (team slug)
+[PASS] auction: socket join returns a state snapshot
+[PASS] auction: captain blocked from auctioneer action (guard)
+[PASS] auction: draw → showcase, pool decremented
+[PASS] auction: bid before bidding opens rejected
+[PASS] auction: bid below min increment rejected
+[PASS] auction: bid over safe-max rejected (reserve rule)
+[PASS] auction: non-captain bid rejected (guard)
+[PASS] auction: valid bid accepted
+[PASS] auction: price + top bidder updated
+[PASS] auction: already-top-bidder rejected
+[PASS] auction: simultaneous identical bids → exactly one wins
+[PASS] auction: hammer sells (budget down, roster up, idle)
+[PASS] auction: undo refunds + frees slot
+[PASS] auction: hammer with no bids → unsold
+[PASS] auction: pass-2 can draw an unsold player
+[PASS] auction: pause → paused
+[PASS] auction: resume → live
+[PASS] matchday: team cannot play itself (400)
+[PASS] matchday: missing teams rejected (400)
+[PASS] matchday: captain cannot create matches (403)
+[PASS] matchday: admin creates a match (200)
+[PASS] matchday: result saved
+[PASS] stats: bulk stat entry saved
+[PASS] stats: stat line stamped with team-at-match
+[PASS] poach: recorded (200)
+[PASS] poach: player currentTeam updated to new team
+[PASS] poach: rosters updated (left old, joined new)
+[PASS] poach: past stat line keeps ORIGINAL team (history intact)
+[PASS] analytics: endpoint returns bundle
+[PASS] analytics: leaderboard reflects the win
+[PASS] analytics: MVP includes the player with stats
+[PASS] hub: public hub accessible WITHOUT auth (200)
+[PASS] hub: returns tournament + analytics + matches
+[PASS] hub: unknown tournament → 404
+[PASS] register: rejected while registration is closed (403)
+[PASS] register: admin opens registration
+[PASS] register: valid self-registration → pending player + token
+[PASS] register: duplicate username rejected (409)
+[PASS] register: pending player appears in admin review list
+[PASS] register: player edits own profile
+[PASS] register: admin approval moves player into the pool
+[PASS] register: profile edits blocked once roster locked (403)
+[PASS] economy: locked after the auction has started (409)
+[PASS] security: login is rate-limited (429) under a burst

@@ -1,0 +1,19 @@
+# Render.com blueprint — one Docker web service for the whole platform.
+# Create the database separately on MongoDB Atlas (free tier) and paste its
+# connection string into MONGO_URI below (set it in the Render dashboard, not
+# committed here). See DEPLOY.md for the full walkthrough.
+services:
+  - type: web
+    name: ntg-tournament-platform
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    plan: free
+    healthCheckPath: /api/health
+    envVars:
+      - key: MONGO_URI
+        sync: false          # set in dashboard (your Atlas connection string)
+      - key: JWT_SECRET
+        generateValue: true  # Render generates a strong secret
+      - key: NODE_ENV
+        value: production
+      # CLIENT_ORIGIN left unset → CORS accepts the deployed origin automatically.
