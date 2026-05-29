@@ -4,15 +4,14 @@ export default {
   theme: {
     extend: {
       colors: {
-        // Single accent — Valorant red — with hover/dim/soft variants for depth.
         accent: { DEFAULT: '#FF4655', hover: '#FF6470', dim: '#C8323F', soft: '#FF8A93' },
-        ember: '#FF7A45', // warm partner for red→ember gradients
+        ember: '#FF7A45',
         ink: {
-          950: '#06080C', // deepest backdrop
-          900: '#0B0E13', // page
-          800: '#11151C', // panels
-          700: '#1A212B', // raised cards
-          600: '#26303D', // borders / inputs
+          950: '#06080C',
+          900: '#0B0E13',
+          800: '#11151C',
+          700: '#1A212B',
+          600: '#26303D',
           500: '#3A4757',
         },
         muted: '#8A97A8',

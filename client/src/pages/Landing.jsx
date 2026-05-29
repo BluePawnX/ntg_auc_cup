@@ -1,13 +1,15 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { motion } from 'framer-motion';
 import { api } from '../lib/api.js';
 import { useAuth } from '../lib/auth.jsx';
+import InteractiveGrid from '../components/InteractiveGrid.jsx';
 
 const homeFor = (role) => (role === 'captain' ? '/captain' : role === 'player' ? '/profile' : role === 'auctioneer' || role === 'admin' ? '/auctioneer' : '/observer');
 
 const FEATURES = [
   { icon: GavelIcon, title: 'Live auction', text: 'Real-time bidding with a server-owned clock, a dynamic budget reserve, and instant sync to every phone in the room.' },
-  { icon: CastIcon, title: 'Spectator hub', text: 'A shareable, no-login page with the schedule, standings, MVP race and value lists — updating as the games play out.' },
+  { icon: CastIcon, title: 'Spectator hub', text: 'A shareable, no-login page with the schedule, standings, MVP race and value lists - updating as the games play out.' },
   { icon: ChartIcon, title: 'Analytics & MVP', text: 'Per-player performance across every game, price-vs-performance value index, and automatic Watchlist & Washed lists.' },
 ];
 
@@ -19,58 +21,80 @@ export default function Landing() {
 
   return (
     <div className="relative min-h-full overflow-hidden">
-      {/* animated backdrop */}
-      <div className="pointer-events-none absolute inset-0 grid-bg opacity-60" />
-      <div className="blob bg-accent w-[34rem] h-[34rem] -top-40 -right-40 animate-blob" />
-      <div className="blob bg-ember w-[26rem] h-[26rem] top-1/2 -left-40 animate-blob" style={{ animationDelay: '4s' }} />
+      <InteractiveGrid blobIntensity="normal" />
 
       {/* nav */}
       <header className="relative z-10 mx-auto max-w-6xl px-6 h-16 flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <span className="text-accent font-black text-xl tracking-tight">NTG</span>
+        <motion.div initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.05 }} className="flex items-center gap-2">
+          <span className="text-accent font-black text-xl tracking-tight drop-shadow-[0_0_12px_rgba(255,70,85,0.5)]">NTG</span>
           <span className="text-muted text-sm hidden sm:inline">Tournament Platform</span>
-        </div>
-        <nav className="flex items-center gap-2 text-sm">
-          {tournament ? <Link to={`/hub/${tournament.id}`} className="btn-ghost">Watch live</Link> : null}
-          {account ? <Link to={homeFor(account.role)} className="btn-accent">Open terminal</Link>
-            : <Link to="/login" className="btn-ghost">Operator login</Link>}
-        </nav>
+        </motion.div>
+        <motion.nav initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.05 }} className="flex items-center gap-2 text-sm">
+          {tournament ? <Link to={`/hub/${tournament.id}`} className="btn-ghost transition-transform active:scale-95">Watch live</Link> : null}
+          {account ? <Link to={homeFor(account.role)} className="btn-accent transition-transform active:scale-95">Open terminal</Link>
+            : <Link to="/login" className="btn-ghost transition-transform active:scale-95">Operator login</Link>}
+        </motion.nav>
       </header>
 
       {/* hero */}
       <section className="relative z-10 mx-auto max-w-4xl px-6 pt-20 pb-16 text-center">
-        <span className="chip glass text-slate-200 reveal" style={{ animationDelay: '0ms' }}>
+        <motion.span
+          initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}
+          className="chip glass text-slate-200"
+        >
           <span className="h-1.5 w-1.5 rounded-full bg-accent mr-2 animate-glowPulse" />
           {tournament ? tournament.name : 'NTG Esports'}
-        </span>
-        <h1 className="mt-6 text-5xl sm:text-7xl font-black leading-[1.05] tracking-tight reveal" style={{ animationDelay: '80ms' }}>
+        </motion.span>
+        <motion.h1
+          initial={{ opacity: 0, y: 18 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6, delay: 0.08, ease: [0.22, 1, 0.36, 1] }}
+          className="mt-6 text-5xl sm:text-7xl font-black leading-[1.05] tracking-tight"
+        >
           Run the entire <span className="gradient-text">tournament</span>,<br className="hidden sm:block" /> from auction to MVP.
-        </h1>
-        <p className="mt-6 text-lg text-muted max-w-2xl mx-auto reveal" style={{ animationDelay: '160ms' }}>
-          A live drafting auction, match-day scheduling and stats, and a spectator hub with automatic analytics —
+        </motion.h1>
+        <motion.p
+          initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6, delay: 0.18, ease: [0.22, 1, 0.36, 1] }}
+          className="mt-6 text-lg text-muted max-w-2xl mx-auto"
+        >
+          A live drafting auction, match-day scheduling and stats, and a spectator hub with automatic analytics -
           one platform, built for esports, reusable for any cup.
-        </p>
-        <div className="mt-9 flex flex-wrap items-center justify-center gap-3 reveal" style={{ animationDelay: '240ms' }}>
-          <Link to="/register" className="btn-accent text-base px-6 py-3">Register to play</Link>
-          {tournament ? <Link to={`/hub/${tournament.id}`} className="btn-ghost text-base px-6 py-3">Watch the hub →</Link> : null}
-        </div>
+        </motion.p>
+        <motion.div
+          initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6, delay: 0.28, ease: [0.22, 1, 0.36, 1] }}
+          className="mt-9 flex flex-wrap items-center justify-center gap-3"
+        >
+          <motion.div whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.96 }}>
+            <Link to="/register" className="btn-accent text-base px-6 py-3 inline-block">Register to play</Link>
+          </motion.div>
+          {tournament ? (
+            <motion.div whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.96 }}>
+              <Link to={`/hub/${tournament.id}`} className="btn-ghost text-base px-6 py-3 inline-block">Watch the hub &rarr;</Link>
+            </motion.div>
+          ) : null}
+        </motion.div>
       </section>
 
       {/* features */}
       <section className="relative z-10 mx-auto max-w-6xl px-6 pb-24 grid md:grid-cols-3 gap-5">
         {FEATURES.map((f, i) => (
-          <div key={f.title} className="panel p-6 hover-lift reveal" style={{ animationDelay: `${320 + i * 90}ms` }}>
-            <div className="h-11 w-11 rounded-xl bg-accent-grad grid place-items-center text-white shadow-glow">
+          <motion.div
+            key={f.title}
+            initial={{ opacity: 0, y: 22 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.55, delay: 0.35 + i * 0.08, ease: [0.22, 1, 0.36, 1] }}
+            whileHover={{ y: -6, transition: { duration: 0.2 } }}
+            className="panel p-6 group cursor-default"
+          >
+            <div className="h-11 w-11 rounded-xl bg-accent-grad grid place-items-center text-white shadow-glow transition-transform group-hover:rotate-3 group-hover:scale-110">
               <f.icon />
             </div>
             <h3 className="mt-4 text-lg font-bold">{f.title}</h3>
             <p className="mt-1.5 text-sm text-muted leading-relaxed">{f.text}</p>
-          </div>
+          </motion.div>
         ))}
       </section>
 
       <footer className="relative z-10 border-t border-white/5 py-6 text-center text-xs text-muted">
-        NTG Tournament Platform · built for {tournament ? tournament.game : 'Valorant'} and beyond
+        NTG Tournament Platform &middot; built for {tournament ? tournament.game : 'Valorant'} and beyond
       </footer>
     </div>
   );
