@@ -5,7 +5,7 @@
  */
 export const seedConfig = {
   tournament: {
-    name: 'NTG Auction Cup 2',
+    name: 'AUC Cup 2 (NTG x Aorus Cafe League)',
     game: 'Valorant',
     settings: {
       startingBudget: 150,

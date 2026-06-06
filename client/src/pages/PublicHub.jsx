@@ -129,7 +129,7 @@ export default function PublicHub() {
                   className="card px-3 py-2 flex items-center gap-3"
                 >
                   <span className="text-xs text-muted w-28 truncate">{m.round}</span>
-                  <span className="flex-1 text-sm">{m.teamAName} <span className="text-muted">vs</span> {m.teamBName}</span>
+                  <span className="flex-1 text-sm">{m.teamAName || <span className="text-muted">TBD</span>} <span className="text-muted">vs</span> {m.teamBName || <span className="text-muted">TBD</span>}</span>
                   {m.status === 'complete'
                     ? <span className="tabular-nums font-semibold">{m.scoreA}-{m.scoreB}</span>
                     : <span className="text-muted text-xs">{m.scheduledTime ? new Date(m.scheduledTime).toLocaleString() : 'TBD'}</span>}
