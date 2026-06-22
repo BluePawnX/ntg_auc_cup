@@ -108,16 +108,36 @@ function Schedule({ tournamentId, token, teams, matches, teamById, players, relo
       </div>
 
       <div className="panel p-4">
-        <div className="label mb-2">Record a poach (player moves teams after a match)</div>
+        <div className="label mb-2">Record a poach (player moves teams — can be repeated across the tournament)</div>
         <div className="flex flex-wrap gap-2 items-center">
-          <select className={sel} value={poachForm.player} onChange={(e) => setPoachForm({ ...poachForm, player: e.target.value })}>
-            <option value="">Player</option>{players.map((p) => <option key={p._id} value={p._id}>{p.name}</option>)}
+          <select
+            className={sel}
+            value={poachForm.player}
+            onChange={(e) => {
+              const pid = e.target.value;
+              const picked = players.find((p) => String(p._id) === String(pid));
+              const cur = picked?.currentTeam ? String(picked.currentTeam) : '';
+              setPoachForm({ player: pid, fromTeam: cur, toTeam: '' });
+            }}
+          >
+            <option value="">Player</option>
+            {players.map((p) => {
+              const cur = p.currentTeam ? teamById.get(String(p.currentTeam))?.name : null;
+              return (
+                <option key={p._id} value={p._id}>
+                  {p.name}{cur ? ` — ${cur}` : ''}
+                </option>
+              );
+            })}
           </select>
           <span className="text-muted">from</span>
           <select className={sel} value={poachForm.fromTeam} onChange={(e) => setPoachForm({ ...poachForm, fromTeam: e.target.value })}><option value="">From</option>{teams.map(teamOpt)}</select>
           <span className="text-muted">to</span>
           <select className={sel} value={poachForm.toTeam} onChange={(e) => setPoachForm({ ...poachForm, toTeam: e.target.value })}><option value="">To</option>{teams.map(teamOpt)}</select>
-          <button className="btn-ghost" disabled={!poachForm.player || !poachForm.fromTeam || !poachForm.toTeam} onClick={doPoach}>Poach</button>
+          <button className="btn-ghost" disabled={!poachForm.player || !poachForm.fromTeam || !poachForm.toTeam || poachForm.fromTeam === poachForm.toTeam} onClick={doPoach}>Poach</button>
+        </div>
+        <div className="text-xs text-muted mt-2">
+          Tip: picking a player auto-fills "From" with their current team. The same player can be poached again later if they get traded a second time.
         </div>
       </div>
     </>

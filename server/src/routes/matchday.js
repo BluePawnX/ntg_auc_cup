@@ -123,18 +123,44 @@ router.post('/matches/:mid/stats/parse', requireAuth, admin, async (req, res) =>
  * POST a poach (admin): a player moves from one team to another after a match.
  * Records a PoachEvent and updates the live rosters + the player's currentTeam.
  * Past stat lines keep their original team stamp, so history stays intact.
+ *
+ * Repeat poaches are supported — a player can be moved A→B→A→C across the
+ * tournament. The roster cleanup scans EVERY team in the tournament and pulls
+ * the player out of any stale roster, so a re-poach can't leave them on two
+ * teams at once. The match link is optional (e.g. finals-level poach with no
+ * specific match attached).
  */
 router.post('/tournaments/:tid/poach', requireAuth, admin, async (req, res) => {
   const { match, player, fromTeam, toTeam } = req.body || {};
   if (!player || !fromTeam || !toTeam) return res.status(400).json({ error: 'player, fromTeam and toTeam are required' });
+  if (String(fromTeam) === String(toTeam)) return res.status(400).json({ error: 'fromTeam and toTeam must differ' });
+
   const [from, to, p] = await Promise.all([Team.findById(fromTeam), Team.findById(toTeam), Player.findById(player)]);
   if (!from || !to || !p) return res.status(404).json({ error: 'Team or player not found' });
 
-  from.roster = from.roster.filter((id) => String(id) !== String(player));
+  // Defensive cleanup: pull the player off EVERY roster in this tournament so a
+  // re-poach can't leave stale entries behind. Required because the user may
+  // record fromTeam = the player's original team even after a prior poach.
+  const allTeams = await Team.find({ tournament: req.params.tid });
+  const updates = [];
+  for (const t of allTeams) {
+    const before = t.roster.length;
+    t.roster = t.roster.filter((id) => String(id) !== String(player));
+    if (t.roster.length !== before) updates.push(t.save());
+  }
   if (!to.roster.some((id) => String(id) === String(player))) to.roster.push(p._id);
+  updates.push(to.save());
   p.currentTeam = to._id;
-  await Promise.all([from.save(), to.save(), p.save()]);
-  await PoachEvent.create({ tournament: req.params.tid, match: match || undefined, player, fromTeam, toTeam });
+  updates.push(p.save());
+  await Promise.all(updates);
+
+  await PoachEvent.create({
+    tournament: req.params.tid,
+    match: match || undefined,
+    player,
+    fromTeam,
+    toTeam,
+  });
   res.json({ ok: true });
 });
 

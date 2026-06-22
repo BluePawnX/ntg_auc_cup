@@ -54,7 +54,10 @@ playerMatchStatsSchema.index({ match: 1, player: 1 }, { unique: true });
 const poachEventSchema = new mongoose.Schema(
   {
     tournament: { type: mongoose.Schema.Types.ObjectId, ref: 'Tournament', required: true, index: true },
-    match: { type: mongoose.Schema.Types.ObjectId, ref: 'Match', required: true },
+    // match is OPTIONAL — late-tournament poaches (esp. between SF/Final) can
+    // be recorded without an explicit linked match. The same player can be
+    // poached multiple times across the tournament; no unique constraint here.
+    match: { type: mongoose.Schema.Types.ObjectId, ref: 'Match' },
     player: { type: mongoose.Schema.Types.ObjectId, ref: 'Player', required: true },
     fromTeam: { type: mongoose.Schema.Types.ObjectId, ref: 'Team', required: true },
     toTeam: { type: mongoose.Schema.Types.ObjectId, ref: 'Team', required: true },
