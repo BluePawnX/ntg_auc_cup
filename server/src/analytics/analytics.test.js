@@ -11,25 +11,22 @@ import {
 
 /* --------------------------- performance score -------------------------- */
 
-test('playerPerformance: 2-game KDA — no trim, small volume boost', () => {
+test('playerPerformance: rawAvg and trimmed are exposed for transparency', () => {
   const lines = [
     { player: 'p1', stats: { kills: 10, deaths: 2, assists: 4 } }, // 7
     { player: 'p1', stats: { kills: 4, deaths: 4, assists: 4 } },  // 2
   ];
   const perf = playerPerformance(lines, 'avg_kda');
   assert.equal(perf.get('p1').games, 2);
-  // games=2 → drop 0 → avg = 4.5; boost = 1 + 0.05*log2(3) ≈ 1.07925
-  assert.ok(perf.get('p1').score > 4.5);
-  assert.ok(perf.get('p1').score < 4.9);
   assert.equal(perf.get('p1').rawAvg, 4.5);
+  // games=2, drop floor(0.5)=0, trimmed = 4.5
+  assert.equal(perf.get('p1').trimmed, 4.5);
 });
 
 test('playerPerformance guards against divide-by-zero deaths', () => {
   const perf = playerPerformance([{ player: 'x', stats: { kills: 5, deaths: 0, assists: 1 } }], 'avg_kda');
-  // games=1 → no trim → avg=6; boost = 1 + 0.05*log2(2) = 1.05
+  // (5+1)/max(0,1) = 6
   assert.equal(perf.get('x').rawAvg, 6);
-  assert.ok(perf.get('x').score > 6);
-  assert.ok(perf.get('x').score < 6.5);
 });
 
 test('playerPerformance: bad game in a 4-game body of work is dropped', () => {
@@ -40,28 +37,47 @@ test('playerPerformance: bad game in a 4-game body of work is dropped', () => {
     { player: 'p1', stats: { kills: 1,  deaths: 10, assists: 0 } }, // 0.1
   ];
   const perf = playerPerformance(lines, 'avg_kda');
-  // games=4 → drop floor(4*0.25)=1 → trimmed avg = mean(5,5,5) = 5
-  // boost ≈ 1 + 0.05*log2(5) ≈ 1.116
+  // games=4 -> drop floor(4*0.25)=1 -> trimmed avg = mean(5,5,5) = 5
   assert.equal(perf.get('p1').trimmed, 5);
-  assert.ok(perf.get('p1').score > 5);
+  assert.ok(perf.get('p1').rawAvg < perf.get('p1').trimmed); // trim helped
 });
 
-test('playerPerformance: more games → strictly higher score for same quality', () => {
+test('playerPerformance: more games -> strictly higher score for same quality', () => {
   const goodGame = { kills: 10, deaths: 2, assists: 4 };
-  const oneGame = playerPerformance([{ player: 'p1', stats: goodGame }], 'avg_kda');
-  const fourGames = playerPerformance(
-    [1, 2, 3, 4].map(() => ({ player: 'p1', stats: goodGame })),
-    'avg_kda'
-  );
-  // Same per-game quality, more volume → higher score (the user's invariant).
-  assert.ok(fourGames.get('p1').score > oneGame.get('p1').score);
+  const lines = [
+    { player: 'p1', stats: goodGame },
+    { player: 'p2', stats: goodGame },
+    { player: 'p2', stats: goodGame },
+    { player: 'p2', stats: goodGame },
+    { player: 'p2', stats: goodGame },
+  ];
+  const perf = playerPerformance(lines, 'avg_kda');
+  assert.ok(perf.get('p2').score > perf.get('p1').score, 'volume helps for same quality');
 });
 
-test('valorant_mvp formula: KDA + 0.5·FB + 0.3·plants', () => {
+test('playerPerformance: a single godlike game does NOT beat a 4-game above-avg body of work', () => {
+  // Rajiv-case: 1 game with ~14 impact vs a finalist with 4 games at ~6.
+  const stellar = { kills: 20, deaths: 2, assists: 4, firstBloods: 3, plants: 2 };
+  const aboveAvg = { kills: 12, deaths: 4, assists: 4, firstBloods: 1, plants: 1 };
+  const lines = [
+    { player: 'rajiv', stats: stellar },
+    ...[1, 2, 3, 4].map(() => ({ player: 'finalist', stats: aboveAvg })),
+    // Filler players to simulate tournament spread.
+    ...['f1', 'f2', 'f3', 'f4', 'f5', 'f6', 'f7', 'f8'].flatMap((id) =>
+      [1, 2].map(() => ({ player: id, stats: { kills: 8, deaths: 6, assists: 3, firstBloods: 1, plants: 1 } }))
+    ),
+  ];
+  const perf = playerPerformance(lines, 'valorant_mvp');
+  assert.ok(
+    perf.get('finalist').score > perf.get('rajiv').score,
+    `finalist (4 games) must beat 1-game stellar: finalist=${perf.get('finalist').score.toFixed(2)}, rajiv=${perf.get('rajiv').score.toFixed(2)}`
+  );
+});
+
+test('valorant_mvp per-game formula: KDA + 0.5*FB + 0.3*plants', () => {
   const lines = [{ player: 'p1', stats: { kills: 6, deaths: 3, assists: 3, firstBloods: 2, plants: 1 } }];
   const perf = playerPerformance(lines, 'valorant_mvp');
   // per-game = (6+3)/3 + 0.5*2 + 0.3*1 = 3 + 1 + 0.3 = 4.3
-  // games=1 → no trim, boost ≈ 1.05
   assert.equal(perf.get('p1').rawAvg, 4.3);
 });
 
@@ -130,10 +146,10 @@ const fixture = {
   ],
   teams: [{ _id: 'T1', name: 'Team One' }, { _id: 'T2', name: 'Team Two' }],
   players: [
-    { _id: 'p1', name: 'Star', rank: 'Diamond', isCore: false, status: 'sold', soldPrice: 40, currentTeam: 'T1' }, // pricey but great
-    { _id: 'p2', name: 'Bargain', rank: 'Silver', isCore: false, status: 'sold', soldPrice: 5, currentTeam: 'T2' }, // cheap, decent
-    { _id: 'p3', name: 'Overpaid', rank: 'Immortal', isCore: true, currentTeam: 'T1' }, // expensive core, poor
-    { _id: 'p4', name: 'Unsold', rank: 'Diamond', isCore: false, status: 'unsold' }, // no price
+    { _id: 'p1', name: 'Star', rank: 'Diamond', isCore: false, status: 'sold', soldPrice: 40, currentTeam: 'T1' },
+    { _id: 'p2', name: 'Bargain', rank: 'Silver', isCore: false, status: 'sold', soldPrice: 5, currentTeam: 'T2' },
+    { _id: 'p3', name: 'Overpaid', rank: 'Immortal', isCore: true, currentTeam: 'T1' },
+    { _id: 'p4', name: 'Unsold', rank: 'Diamond', isCore: false, status: 'unsold' },
   ],
   statLines: [
     { player: 'p1', stats: { kills: 10, deaths: 2, assists: 4 } }, // 7

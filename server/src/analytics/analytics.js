@@ -2,30 +2,16 @@
  * Analytics engine (Module D). Pure functions — no DB — so the maths can be
  * reasoned about and unit-tested on its own. Everything is derived from the
  * raw stat lines, player prices and match results; nothing is stored.
- *
- * Concepts (from the plan §9):
- *  - Performance Score: per player, averaged across every game they played,
- *    regardless of team/poaching. Default Valorant formula = average KDA.
- *  - MVP race: players ranked by Performance Score.
- *  - Value Index = performance percentile − price percentile. Strongly
- *    positive → Watchlist (great value); strongly negative → Washed list.
- *    Cores are priced by their rank's core-deduction cost so they're included.
- *  - Leaderboard: team standings from completed match results.
  */
 
 /** Named per-game impact formulas. A game template picks one by key. */
 export const performanceFormulas = {
-  // Simple KDA: (kills + assists) / max(deaths, 1)
   avg_kda: (s) => (num(s.kills) + num(s.assists)) / Math.max(num(s.deaths), 1),
-  // Composite Valorant impact per game. KDA is the core; first bloods reward
-  // entry kills (high-leverage round opens); plants reward objective play.
-  // Weights are tuned so KDA still dominates a typical game (KDA of 3 +
-  // 4 FB·0.5 = 5, +3 plants·0.3 = 5.9 — plants nudge but don't decide).
+  // Composite Valorant impact per game.
   valorant_mvp: (s) =>
     (num(s.kills) + num(s.assists)) / Math.max(num(s.deaths), 1)
     + 0.5 * num(s.firstBloods)
     + 0.3 * num(s.plants),
-  // Average combat score, if a template tracks acs
   avg_acs: (s) => num(s.acs),
 };
 
@@ -34,28 +20,23 @@ function num(v) {
   return Number.isFinite(n) ? n : 0;
 }
 
+// Tunable constants for the MVP aggregation.
+export const MVP_TRIM_RATIO     = 0.25;
+export const MVP_PRIOR_WEIGHT   = 3;
+export const MVP_TYPICAL_GAMES  = 3;
+export const MVP_INVOLVEMENT_CAP = 1.4;
+
 /**
- * Per-player Performance Score.
- *
- * The aggregation is explicitly designed so that playing MORE games can never
- * hurt a player's MVP chances:
- *
- *  1. Per-game impact is computed by the active formula.
- *  2. The worst floor(games * 0.25) games are DROPPED before averaging — so
- *     a couple of bad games don't drag down a strong overall body of work.
- *  3. The trimmed average is multiplied by a small volume boost,
- *     1 + 0.05 * log2(1 + games), which rewards showing up game after game
- *     with diminishing returns.
- *
- * Net effect: a player with consistent 5-game performance beats a 1-game
- * flash; a player who plays one bad map in the finals isn't punished for it.
- *
- * @param {Array} statLines  [{ player, stats:{...} }]
- * @param {string} formulaKey
- * @returns Map<playerId, { score, games, rawAvg, trimmed }>
+ * Per-player MVP Performance Score.
+ * 1. Per-game impact via active formula.
+ * 2. Drop worst floor(games * 0.25) games -> trimmedAvg.
+ * 3. Bayesian shrinkage: (games*trimmedAvg + k*globalMean) / (games + k), k=3.
+ * 4. Involvement multiplier: min(1.4, sqrt(games/3)).
+ * 5. score = shrunk * involvement.
  */
 export function playerPerformance(statLines, formulaKey = 'avg_kda') {
   const formula = performanceFormulas[formulaKey] || performanceFormulas.avg_kda;
+
   const byPlayer = new Map();
   for (const line of statLines) {
     const id = String(line.player);
@@ -64,27 +45,36 @@ export function playerPerformance(statLines, formulaKey = 'avg_kda') {
     arr.push(v);
     byPlayer.set(id, arr);
   }
-  const out = new Map();
+
+  const stage1 = new Map();
   for (const [id, impacts] of byPlayer) {
     const games = impacts.length;
-    if (!games) { out.set(id, { score: 0, games: 0, rawAvg: 0, trimmed: 0 }); continue; }
-    const sorted = [...impacts].sort((a, b) => b - a);            // best → worst
-    const dropCount = Math.floor(games * 0.25);
+    if (!games) { stage1.set(id, { games: 0, trimmedAvg: 0, rawAvg: 0 }); continue; }
+    const sorted = [...impacts].sort((a, b) => b - a);
+    const dropCount = Math.floor(games * MVP_TRIM_RATIO);
     const kept = sorted.slice(0, games - dropCount);
     const trimmedAvg = kept.reduce((a, b) => a + b, 0) / kept.length;
-    const volumeBoost = 1 + 0.05 * Math.log2(1 + games);
-    const score = trimmedAvg * volumeBoost;
     const rawAvg = impacts.reduce((a, b) => a + b, 0) / games;
-    out.set(id, { score, games, rawAvg, trimmed: trimmedAvg });
+    stage1.set(id, { games, trimmedAvg, rawAvg });
+  }
+
+  const trimmedAvgs = [...stage1.values()].filter((v) => v.games > 0).map((v) => v.trimmedAvg);
+  const globalMean = trimmedAvgs.length
+    ? trimmedAvgs.reduce((a, b) => a + b, 0) / trimmedAvgs.length
+    : 0;
+
+  const out = new Map();
+  for (const [id, { games, trimmedAvg, rawAvg }] of stage1) {
+    if (!games) { out.set(id, { score: 0, games: 0, rawAvg: 0, trimmed: 0, shrunk: 0, involvement: 0 }); continue; }
+    const shrunk = (games * trimmedAvg + MVP_PRIOR_WEIGHT * globalMean) / (games + MVP_PRIOR_WEIGHT);
+    const involvement = Math.min(MVP_INVOLVEMENT_CAP, Math.sqrt(games / MVP_TYPICAL_GAMES));
+    const score = shrunk * involvement;
+    out.set(id, { score, games, rawAvg, trimmed: trimmedAvg, shrunk, involvement });
   }
   return out;
 }
 
-/**
- * Per-player TOTAL of a single stat key across every game they played.
- * Used to build the max-kills / max-deaths / max-first-bloods / max-plants
- * leaderboards. Returns [{ playerId, total, games }] sorted desc by total.
- */
+/** Per-player TOTAL of a single stat key across every game they played. */
 export function statTotals(statLines, key) {
   const byPlayer = new Map();
   for (const line of statLines) {
@@ -97,11 +87,7 @@ export function statTotals(statLines, key) {
   return [...byPlayer.entries()].map(([playerId, v]) => ({ playerId, total: v.total, games: v.games }));
 }
 
-/**
- * Percentile rank of each item's value in [0,100], using the standard
- * (#below + 0.5·#equal) / n convention so ties are handled fairly.
- * @returns Map<id, percentile>
- */
+/** Percentile rank with (#below + 0.5*#equal) / n convention. */
 export function percentileRanks(items, getId, getValue) {
   const vals = items.map(getValue);
   const n = vals.length;
@@ -120,11 +106,7 @@ export function percentileRanks(items, getId, getValue) {
   return out;
 }
 
-/**
- * Each player's auction price for value analysis. Sold pool players use their
- * soldPrice; cores use their rank's coreCost (implied price) so they're judged
- * fairly. Players who never had a price (unsold, never auctioned) → null.
- */
+/** Each player's auction price for value analysis. */
 export function playerPrices(players, rankTable) {
   const coreCostByRank = new Map((rankTable || []).map((r) => [r.rank, r.coreCost]));
   const prices = new Map();
@@ -137,7 +119,7 @@ export function playerPrices(players, rankTable) {
   return prices;
 }
 
-/** Team standings from completed matches (wins, then point differential). */
+/** Team standings from completed matches. */
 export function leaderboard(teams, matches) {
   const row = new Map(
     teams.map((t) => [String(t._id ?? t.id), { teamId: String(t._id ?? t.id), name: t.name, wins: 0, losses: 0, played: 0, diff: 0 }])
@@ -154,16 +136,12 @@ export function leaderboard(teams, matches) {
   return [...row.values()].sort((x, y) => y.wins - x.wins || y.diff - x.diff || x.name.localeCompare(y.name));
 }
 
-/**
- * The full analytics bundle. Pure: pass in plain data, get plain data back.
- * @param {object} args { players, statLines, matches, teams, rankTable, formulaKey }
- */
+/** The full analytics bundle. */
 export function computeAnalytics({ players = [], statLines = [], matches = [], teams = [], rankTable = [], formulaKey = 'avg_kda' }) {
   const perf = playerPerformance(statLines, formulaKey);
   const prices = playerPrices(players, rankTable);
   const teamName = new Map(teams.map((t) => [String(t._id ?? t.id), t.name]));
 
-  // Build a per-player row with score, price and team.
   const rows = players.map((p) => {
     const id = String(p._id ?? p.id);
     const perfRow = perf.get(id) || { score: 0, games: 0 };
@@ -179,11 +157,9 @@ export function computeAnalytics({ players = [], statLines = [], matches = [], t
     };
   });
 
-  // MVP race: anyone who played, ranked by score.
   const played = rows.filter((r) => r.games > 0);
   const mvp = [...played].sort((a, b) => b.score - a.score);
 
-  // Value Index over players who both played and have a price.
   const valued = played.filter((r) => r.price != null);
   const perfPct = percentileRanks(valued, (r) => r.playerId, (r) => r.score);
   const pricePct = percentileRanks(valued, (r) => r.playerId, (r) => r.price);
@@ -196,13 +172,9 @@ export function computeAnalytics({ players = [], statLines = [], matches = [], t
     }))
     .sort((a, b) => b.valueIndex - a.valueIndex);
 
-  const watchlist = valueRows.filter((r) => r.valueIndex >= 20); // strong value
+  const watchlist = valueRows.filter((r) => r.valueIndex >= 20);
   const washed = [...valueRows].filter((r) => r.valueIndex <= -20).sort((a, b) => a.valueIndex - b.valueIndex);
 
-  // Per-stat tournament leaderboards (max kills / deaths / first bloods /
-  // plants). These are TOTALS across every game the player played, so a
-  // player who shows up for more games naturally climbs higher — which is
-  // exactly the “rewards volume” behavior the MVP race also uses.
   const playerLookup = new Map(players.map((p) => [String(p._id ?? p.id), p]));
   function buildStatBoard(key) {
     return statTotals(statLines, key)
@@ -212,7 +184,7 @@ export function computeAnalytics({ players = [], statLines = [], matches = [], t
         const p = playerLookup.get(r.playerId);
         return {
           playerId: r.playerId,
-          name: p?.name || '—',
+          name: p?.name || '-',
           team: p?.currentTeam ? teamName.get(String(p.currentTeam)) || null : null,
           total: r.total,
           games: r.games,
@@ -229,7 +201,6 @@ export function computeAnalytics({ players = [], statLines = [], matches = [], t
     washed,
     priceVsPerformance: rows.filter((r) => r.price != null),
     formula: formulaKey,
-    // Stat leaderboards
     topKills:       buildStatBoard('kills'),
     topDeaths:      buildStatBoard('deaths'),
     topFirstBloods: buildStatBoard('firstBloods'),
