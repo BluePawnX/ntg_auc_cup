@@ -1,13 +1,10 @@
 /**
- * Analytics engine (Module D). Pure functions — no DB — so the maths can be
- * reasoned about and unit-tested on its own. Everything is derived from the
- * raw stat lines, player prices and match results; nothing is stored.
+ * Analytics engine (Module D). Pure functions, no DB.
  */
 
 /** Named per-game impact formulas. A game template picks one by key. */
 export const performanceFormulas = {
   avg_kda: (s) => (num(s.kills) + num(s.assists)) / Math.max(num(s.deaths), 1),
-  // Composite Valorant impact per game.
   valorant_mvp: (s) =>
     (num(s.kills) + num(s.assists)) / Math.max(num(s.deaths), 1)
     + 0.5 * num(s.firstBloods)
@@ -20,42 +17,22 @@ function num(v) {
   return Number.isFinite(n) ? n : 0;
 }
 
-// Tunable constants for the MVP aggregation.
-export const MVP_PRIOR_WEIGHT   = 4;    // Bayesian k=4 - shrinks low-game samples toward global mean
-export const MVP_TYPICAL_GAMES  = 3;    // tournament-typical games-played anchor
-export const MVP_INVOLVEMENT_CAP = 1.4; // ceiling for the involvement multiplier
+// MVP aggregation tunables.
+export const MVP_TRIM_RATIO       = 0.25;
+export const MVP_PRIOR_WEIGHT     = 3;
+export const MVP_TYPICAL_GAMES    = 3;
+export const MVP_INVOLVEMENT_CAP  = 1.4;
 
 /**
- * Per-player MVP Performance Score.
- *
- * EVERY game the player played is included - no game is dropped. Two
- * mechanisms protect a player from being punished by a single bad game:
- *
- *  1. Bayesian shrinkage toward the tournament mean (k=4). A single fluky
- *     game (good or bad) gets pulled hard toward the average. A multi-game
- *     average barely moves. So one bad map can't tank you, and one godlike
- *     map can't carry you.
- *
- *  2. Involvement multiplier sqrt(games / 3), capped at 1.4. More games is
- *     strictly better. The boost stacks on top of the shrunk average, so a
- *     5-game player with one bad game still outranks a 4-game player who
- *     didn't have a bad one.
- *
- *  Formula:
- *     rawAvg      = sum(perGameImpact) / games
- *     globalMean  = mean(rawAvg across all players in this tournament)
- *     shrunk      = (games * rawAvg + k * globalMean) / (games + k)
- *     involvement = min(1.4, sqrt(games / 3))
- *     score       = shrunk * involvement
- *
- * Invariants pinned by tests:
- *   - More games at same quality -> strictly higher score.
- *   - 1-game stellar cannot beat a 4-game above-average body of work.
- *   - A 5-game run with one bad game still beats a 4-game perfect run.
+ * Per-player MVP score:
+ *   1. Per-game impact from active formula.
+ *   2. Drop worst floor(games * 0.25) games -> trimmedAvg.
+ *   3. Shrinkage toward globalMean: (games*trimmedAvg + 3*globalMean) / (games + 3).
+ *   4. Involvement multiplier: min(1.4, sqrt(games/3)).
+ *   5. score = shrunk * involvement.
  */
 export function playerPerformance(statLines, formulaKey = 'avg_kda') {
   const formula = performanceFormulas[formulaKey] || performanceFormulas.avg_kda;
-
   const byPlayer = new Map();
   for (const line of statLines) {
     const id = String(line.player);
@@ -65,29 +42,30 @@ export function playerPerformance(statLines, formulaKey = 'avg_kda') {
     byPlayer.set(id, arr);
   }
 
-  // Stage 1: raw average across ALL games (no trim).
   const stage1 = new Map();
   for (const [id, impacts] of byPlayer) {
     const games = impacts.length;
-    if (!games) { stage1.set(id, { games: 0, rawAvg: 0 }); continue; }
+    if (!games) { stage1.set(id, { games: 0, trimmedAvg: 0, rawAvg: 0 }); continue; }
+    const sorted = [...impacts].sort((a, b) => b - a);
+    const dropCount = Math.floor(games * MVP_TRIM_RATIO);
+    const kept = sorted.slice(0, games - dropCount);
+    const trimmedAvg = kept.reduce((a, b) => a + b, 0) / kept.length;
     const rawAvg = impacts.reduce((a, b) => a + b, 0) / games;
-    stage1.set(id, { games, rawAvg });
+    stage1.set(id, { games, trimmedAvg, rawAvg });
   }
 
-  // Stage 2: tournament-wide mean across all rawAvgs (Bayesian prior).
-  const rawAvgs = [...stage1.values()].filter((v) => v.games > 0).map((v) => v.rawAvg);
-  const globalMean = rawAvgs.length
-    ? rawAvgs.reduce((a, b) => a + b, 0) / rawAvgs.length
+  const trimmedAvgs = [...stage1.values()].filter((v) => v.games > 0).map((v) => v.trimmedAvg);
+  const globalMean = trimmedAvgs.length
+    ? trimmedAvgs.reduce((a, b) => a + b, 0) / trimmedAvgs.length
     : 0;
 
-  // Stage 3: shrinkage + involvement.
   const out = new Map();
-  for (const [id, { games, rawAvg }] of stage1) {
-    if (!games) { out.set(id, { score: 0, games: 0, rawAvg: 0, shrunk: 0, involvement: 0 }); continue; }
-    const shrunk = (games * rawAvg + MVP_PRIOR_WEIGHT * globalMean) / (games + MVP_PRIOR_WEIGHT);
+  for (const [id, { games, trimmedAvg, rawAvg }] of stage1) {
+    if (!games) { out.set(id, { score: 0, games: 0, rawAvg: 0, trimmed: 0, shrunk: 0, involvement: 0 }); continue; }
+    const shrunk = (games * trimmedAvg + MVP_PRIOR_WEIGHT * globalMean) / (games + MVP_PRIOR_WEIGHT);
     const involvement = Math.min(MVP_INVOLVEMENT_CAP, Math.sqrt(games / MVP_TYPICAL_GAMES));
     const score = shrunk * involvement;
-    out.set(id, { score, games, rawAvg, shrunk, involvement });
+    out.set(id, { score, games, rawAvg, trimmed: trimmedAvg, shrunk, involvement });
   }
   return out;
 }
@@ -178,10 +156,14 @@ export function computeAnalytics({ players = [], statLines = [], matches = [], t
   const played = rows.filter((r) => r.games > 0);
   const mvp = [...played].sort((a, b) => b.score - a.score);
 
-  const valued = played.filter((r) => r.price != null);
-  const perfPct = percentileRanks(valued, (r) => r.playerId, (r) => r.score);
-  const pricePct = percentileRanks(valued, (r) => r.playerId, (r) => r.price);
-  const valueRows = valued
+  // Value Index, Watchlist and Washed list intentionally EXCLUDE cores
+  // (captains + co-captains). Their "price" is the rank-based coreCost — it
+  // wasn't set by the auction, so judging them as bargains/overpays is
+  // misleading. Cores still appear in the MVP race and per-stat boards.
+  const valuedNonCore = played.filter((r) => r.price != null && !r.isCore);
+  const perfPct = percentileRanks(valuedNonCore, (r) => r.playerId, (r) => r.score);
+  const pricePct = percentileRanks(valuedNonCore, (r) => r.playerId, (r) => r.price);
+  const valueRows = valuedNonCore
     .map((r) => ({
       ...r,
       perfPct: round(perfPct.get(r.playerId)),
@@ -217,6 +199,9 @@ export function computeAnalytics({ players = [], statLines = [], matches = [], t
     valueIndex: valueRows,
     watchlist,
     washed,
+    // priceVsPerformance still includes everyone with a price (scatter plot
+    // can use the full picture); the auction-value lists above use the
+    // filtered view.
     priceVsPerformance: rows.filter((r) => r.price != null),
     formula: formulaKey,
     topKills:       buildStatBoard('kills'),
