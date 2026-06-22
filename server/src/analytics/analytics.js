@@ -13,11 +13,19 @@
  *  - Leaderboard: team standings from completed match results.
  */
 
-/** Named performance formulas. A game template picks one by key. */
+/** Named per-game impact formulas. A game template picks one by key. */
 export const performanceFormulas = {
-  // (kills + assists) / max(deaths, 1)
+  // Simple KDA: (kills + assists) / max(deaths, 1)
   avg_kda: (s) => (num(s.kills) + num(s.assists)) / Math.max(num(s.deaths), 1),
-  // average combat score, if a template tracks acs
+  // Composite Valorant impact per game. KDA is the core; first bloods reward
+  // entry kills (high-leverage round opens); plants reward objective play.
+  // Weights are tuned so KDA still dominates a typical game (KDA of 3 +
+  // 4 FB·0.5 = 5, +3 plants·0.3 = 5.9 — plants nudge but don't decide).
+  valorant_mvp: (s) =>
+    (num(s.kills) + num(s.assists)) / Math.max(num(s.deaths), 1)
+    + 0.5 * num(s.firstBloods)
+    + 0.3 * num(s.plants),
+  // Average combat score, if a template tracks acs
   avg_acs: (s) => num(s.acs),
 };
 
@@ -27,10 +35,24 @@ function num(v) {
 }
 
 /**
- * Per-player Performance Score, averaged over their stat lines.
+ * Per-player Performance Score.
+ *
+ * The aggregation is explicitly designed so that playing MORE games can never
+ * hurt a player's MVP chances:
+ *
+ *  1. Per-game impact is computed by the active formula.
+ *  2. The worst floor(games * 0.25) games are DROPPED before averaging — so
+ *     a couple of bad games don't drag down a strong overall body of work.
+ *  3. The trimmed average is multiplied by a small volume boost,
+ *     1 + 0.05 * log2(1 + games), which rewards showing up game after game
+ *     with diminishing returns.
+ *
+ * Net effect: a player with consistent 5-game performance beats a 1-game
+ * flash; a player who plays one bad map in the finals isn't punished for it.
+ *
  * @param {Array} statLines  [{ player, stats:{...} }]
  * @param {string} formulaKey
- * @returns Map<playerId, { score, games }>
+ * @returns Map<playerId, { score, games, rawAvg, trimmed }>
  */
 export function playerPerformance(statLines, formulaKey = 'avg_kda') {
   const formula = performanceFormulas[formulaKey] || performanceFormulas.avg_kda;
@@ -38,16 +60,41 @@ export function playerPerformance(statLines, formulaKey = 'avg_kda') {
   for (const line of statLines) {
     const id = String(line.player);
     const v = formula(line.stats || {});
-    const cur = byPlayer.get(id) || { sum: 0, games: 0 };
-    cur.sum += v;
+    const arr = byPlayer.get(id) || [];
+    arr.push(v);
+    byPlayer.set(id, arr);
+  }
+  const out = new Map();
+  for (const [id, impacts] of byPlayer) {
+    const games = impacts.length;
+    if (!games) { out.set(id, { score: 0, games: 0, rawAvg: 0, trimmed: 0 }); continue; }
+    const sorted = [...impacts].sort((a, b) => b - a);            // best → worst
+    const dropCount = Math.floor(games * 0.25);
+    const kept = sorted.slice(0, games - dropCount);
+    const trimmedAvg = kept.reduce((a, b) => a + b, 0) / kept.length;
+    const volumeBoost = 1 + 0.05 * Math.log2(1 + games);
+    const score = trimmedAvg * volumeBoost;
+    const rawAvg = impacts.reduce((a, b) => a + b, 0) / games;
+    out.set(id, { score, games, rawAvg, trimmed: trimmedAvg });
+  }
+  return out;
+}
+
+/**
+ * Per-player TOTAL of a single stat key across every game they played.
+ * Used to build the max-kills / max-deaths / max-first-bloods / max-plants
+ * leaderboards. Returns [{ playerId, total, games }] sorted desc by total.
+ */
+export function statTotals(statLines, key) {
+  const byPlayer = new Map();
+  for (const line of statLines) {
+    const id = String(line.player);
+    const cur = byPlayer.get(id) || { total: 0, games: 0 };
+    cur.total += num((line.stats || {})[key]);
     cur.games += 1;
     byPlayer.set(id, cur);
   }
-  const out = new Map();
-  for (const [id, { sum, games }] of byPlayer) {
-    out.set(id, { score: games ? sum / games : 0, games });
-  }
-  return out;
+  return [...byPlayer.entries()].map(([playerId, v]) => ({ playerId, total: v.total, games: v.games }));
 }
 
 /**
@@ -152,6 +199,28 @@ export function computeAnalytics({ players = [], statLines = [], matches = [], t
   const watchlist = valueRows.filter((r) => r.valueIndex >= 20); // strong value
   const washed = [...valueRows].filter((r) => r.valueIndex <= -20).sort((a, b) => a.valueIndex - b.valueIndex);
 
+  // Per-stat tournament leaderboards (max kills / deaths / first bloods /
+  // plants). These are TOTALS across every game the player played, so a
+  // player who shows up for more games naturally climbs higher — which is
+  // exactly the “rewards volume” behavior the MVP race also uses.
+  const playerLookup = new Map(players.map((p) => [String(p._id ?? p.id), p]));
+  function buildStatBoard(key) {
+    return statTotals(statLines, key)
+      .filter((r) => r.total > 0)
+      .sort((a, b) => b.total - a.total || a.games - b.games)
+      .map((r) => {
+        const p = playerLookup.get(r.playerId);
+        return {
+          playerId: r.playerId,
+          name: p?.name || '—',
+          team: p?.currentTeam ? teamName.get(String(p.currentTeam)) || null : null,
+          total: r.total,
+          games: r.games,
+          avg: r.games ? Math.round((r.total / r.games) * 10) / 10 : 0,
+        };
+      });
+  }
+
   return {
     leaderboard: leaderboard(teams, matches),
     mvp,
@@ -160,6 +229,11 @@ export function computeAnalytics({ players = [], statLines = [], matches = [], t
     washed,
     priceVsPerformance: rows.filter((r) => r.price != null),
     formula: formulaKey,
+    // Stat leaderboards
+    topKills:       buildStatBoard('kills'),
+    topDeaths:      buildStatBoard('deaths'),
+    topFirstBloods: buildStatBoard('firstBloods'),
+    topPlants:      buildStatBoard('plants'),
   };
 }
 

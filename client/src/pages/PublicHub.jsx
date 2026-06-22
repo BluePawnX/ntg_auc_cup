@@ -31,6 +31,14 @@ export default function PublicHub() {
   const watchRows = (a.watchlist || []).slice(0, 8).map((p) => ({ id: p.id || p.name, name: p.name, paid: credits(p.price), value: '+' + p.valueIndex }));
   const washRows = (a.washed || []).slice(0, 8).map((p) => ({ id: p.id || p.name, name: p.name, paid: credits(p.price), value: p.valueIndex }));
   const pvpRows = (a.priceVsPerformance || []).slice().sort((x, y) => y.score - x.score).map((p) => ({ id: p.id || p.name, name: p.name, team: p.team || '-', rank: p.rank, paid: credits(p.price), score: p.score.toFixed(2) }));
+  const statBoard = (arr) => (arr || []).slice(0, 10).map((p, i) => ({
+    id: p.playerId || p.name, rank: i + 1, name: p.name, team: p.team || '-',
+    total: p.total, games: p.games, avg: p.avg,
+  }));
+  const killsRows  = statBoard(a.topKills);
+  const deathsRows = statBoard(a.topDeaths);
+  const fbRows     = statBoard(a.topFirstBloods);
+  const plantsRows = statBoard(a.topPlants);
 
   return (
     <div className="relative min-h-full overflow-hidden">
@@ -116,7 +124,75 @@ export default function PublicHub() {
           />
         </Section>
 
-        <Section title="Schedule" i={4} wide>
+        <Section title="Most kills" i={4}>
+          <SpotlightTable
+            rows={killsRows}
+            placeholder="Search player or team..."
+            searchKeys={['name', 'team']}
+            columns={[
+              { key: 'rank', label: '#', className: 'text-muted w-8', mono: true },
+              { key: 'name', label: 'Player' },
+              { key: 'team', label: 'Team' },
+              { key: 'total', label: 'Kills', mono: true },
+              { key: 'games', label: 'GP', mono: true },
+              { key: 'avg', label: 'Avg', mono: true },
+            ]}
+            emptyState="No stats entered yet."
+          />
+        </Section>
+
+        <Section title="Most deaths" i={5}>
+          <SpotlightTable
+            rows={deathsRows}
+            placeholder="Search player or team..."
+            searchKeys={['name', 'team']}
+            columns={[
+              { key: 'rank', label: '#', className: 'text-muted w-8', mono: true },
+              { key: 'name', label: 'Player' },
+              { key: 'team', label: 'Team' },
+              { key: 'total', label: 'Deaths', mono: true },
+              { key: 'games', label: 'GP', mono: true },
+              { key: 'avg', label: 'Avg', mono: true },
+            ]}
+            emptyState="No stats entered yet."
+          />
+        </Section>
+
+        <Section title="Most first bloods" i={6}>
+          <SpotlightTable
+            rows={fbRows}
+            placeholder="Search player or team..."
+            searchKeys={['name', 'team']}
+            columns={[
+              { key: 'rank', label: '#', className: 'text-muted w-8', mono: true },
+              { key: 'name', label: 'Player' },
+              { key: 'team', label: 'Team' },
+              { key: 'total', label: 'FB', mono: true },
+              { key: 'games', label: 'GP', mono: true },
+              { key: 'avg', label: 'Avg', mono: true },
+            ]}
+            emptyState="No stats entered yet."
+          />
+        </Section>
+
+        <Section title="Most plants" i={7}>
+          <SpotlightTable
+            rows={plantsRows}
+            placeholder="Search player or team..."
+            searchKeys={['name', 'team']}
+            columns={[
+              { key: 'rank', label: '#', className: 'text-muted w-8', mono: true },
+              { key: 'name', label: 'Player' },
+              { key: 'team', label: 'Team' },
+              { key: 'total', label: 'Plants', mono: true },
+              { key: 'games', label: 'GP', mono: true },
+              { key: 'avg', label: 'Avg', mono: true },
+            ]}
+            emptyState="No stats entered yet."
+          />
+        </Section>
+
+        <Section title="Schedule" i={8} wide>
           {!matches.length ? <Empty>No matches scheduled.</Empty> : (
             <div className="space-y-2">
               {matches.map((m, i) => (
@@ -140,7 +216,7 @@ export default function PublicHub() {
           )}
         </Section>
 
-        <Section title="Price vs performance" i={5} wide>
+        <Section title="Price vs performance" i={9} wide>
           <SpotlightTable
             rows={pvpRows}
             placeholder="Search player, team or rank..."

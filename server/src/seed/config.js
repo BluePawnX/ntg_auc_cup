@@ -27,7 +27,7 @@ export const seedConfig = {
       { key: 'firstBloods', label: 'First Bloods', higherIsBetter: true },
       { key: 'plants', label: 'Spike Plants', higherIsBetter: true },
     ],
-    performanceFormula: 'avg_kda',
+    performanceFormula: 'valorant_mvp',
   },
 
   // Final economy for the new roster + rank changes (post-second-round

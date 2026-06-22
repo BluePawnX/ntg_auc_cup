@@ -6,23 +6,76 @@ import {
   playerPrices,
   leaderboard,
   computeAnalytics,
+  statTotals,
 } from './analytics.js';
 
 /* --------------------------- performance score -------------------------- */
 
-test('playerPerformance averages KDA across a player\'s games', () => {
+test('playerPerformance: 2-game KDA — no trim, small volume boost', () => {
   const lines = [
-    { player: 'p1', stats: { kills: 10, deaths: 2, assists: 4 } }, // (10+4)/2 = 7
-    { player: 'p1', stats: { kills: 4, deaths: 4, assists: 4 } },  // (4+4)/4 = 2
+    { player: 'p1', stats: { kills: 10, deaths: 2, assists: 4 } }, // 7
+    { player: 'p1', stats: { kills: 4, deaths: 4, assists: 4 } },  // 2
   ];
   const perf = playerPerformance(lines, 'avg_kda');
   assert.equal(perf.get('p1').games, 2);
-  assert.equal(perf.get('p1').score, 4.5); // mean of 7 and 2
+  // games=2 → drop 0 → avg = 4.5; boost = 1 + 0.05*log2(3) ≈ 1.07925
+  assert.ok(perf.get('p1').score > 4.5);
+  assert.ok(perf.get('p1').score < 4.9);
+  assert.equal(perf.get('p1').rawAvg, 4.5);
 });
 
 test('playerPerformance guards against divide-by-zero deaths', () => {
   const perf = playerPerformance([{ player: 'x', stats: { kills: 5, deaths: 0, assists: 1 } }], 'avg_kda');
-  assert.equal(perf.get('x').score, 6); // (5+1)/max(0,1)
+  // games=1 → no trim → avg=6; boost = 1 + 0.05*log2(2) = 1.05
+  assert.equal(perf.get('x').rawAvg, 6);
+  assert.ok(perf.get('x').score > 6);
+  assert.ok(perf.get('x').score < 6.5);
+});
+
+test('playerPerformance: bad game in a 4-game body of work is dropped', () => {
+  const lines = [
+    { player: 'p1', stats: { kills: 10, deaths: 2, assists: 0 } }, // 5
+    { player: 'p1', stats: { kills: 10, deaths: 2, assists: 0 } }, // 5
+    { player: 'p1', stats: { kills: 10, deaths: 2, assists: 0 } }, // 5
+    { player: 'p1', stats: { kills: 1,  deaths: 10, assists: 0 } }, // 0.1
+  ];
+  const perf = playerPerformance(lines, 'avg_kda');
+  // games=4 → drop floor(4*0.25)=1 → trimmed avg = mean(5,5,5) = 5
+  // boost ≈ 1 + 0.05*log2(5) ≈ 1.116
+  assert.equal(perf.get('p1').trimmed, 5);
+  assert.ok(perf.get('p1').score > 5);
+});
+
+test('playerPerformance: more games → strictly higher score for same quality', () => {
+  const goodGame = { kills: 10, deaths: 2, assists: 4 };
+  const oneGame = playerPerformance([{ player: 'p1', stats: goodGame }], 'avg_kda');
+  const fourGames = playerPerformance(
+    [1, 2, 3, 4].map(() => ({ player: 'p1', stats: goodGame })),
+    'avg_kda'
+  );
+  // Same per-game quality, more volume → higher score (the user's invariant).
+  assert.ok(fourGames.get('p1').score > oneGame.get('p1').score);
+});
+
+test('valorant_mvp formula: KDA + 0.5·FB + 0.3·plants', () => {
+  const lines = [{ player: 'p1', stats: { kills: 6, deaths: 3, assists: 3, firstBloods: 2, plants: 1 } }];
+  const perf = playerPerformance(lines, 'valorant_mvp');
+  // per-game = (6+3)/3 + 0.5*2 + 0.3*1 = 3 + 1 + 0.3 = 4.3
+  // games=1 → no trim, boost ≈ 1.05
+  assert.equal(perf.get('p1').rawAvg, 4.3);
+});
+
+/* ------------------------------ stat totals ----------------------------- */
+
+test('statTotals sums a single stat across games', () => {
+  const lines = [
+    { player: 'p1', stats: { kills: 10, deaths: 2 } },
+    { player: 'p1', stats: { kills: 6, deaths: 4 } },
+    { player: 'p2', stats: { kills: 8, deaths: 3 } },
+  ];
+  const kills = statTotals(lines, 'kills');
+  assert.equal(kills.find((r) => r.playerId === 'p1').total, 16);
+  assert.equal(kills.find((r) => r.playerId === 'p2').total, 8);
 });
 
 /* ----------------------------- percentiles ------------------------------ */
@@ -121,4 +174,21 @@ test('computeAnalytics: leaderboard reflects the completed match', () => {
   const a = computeAnalytics(fixture);
   assert.equal(a.leaderboard[0].teamId, 'T1');
   assert.equal(a.leaderboard[0].wins, 1);
+});
+
+test('computeAnalytics: stat-leaderboard tables present and sorted desc', () => {
+  const f = {
+    ...fixture,
+    statLines: [
+      { player: 'p1', stats: { kills: 20, deaths: 5, assists: 5, firstBloods: 4, plants: 2 } },
+      { player: 'p2', stats: { kills: 8, deaths: 12, assists: 3, firstBloods: 0, plants: 5 } },
+      { player: 'p3', stats: { kills: 3, deaths: 14, assists: 1, firstBloods: 1, plants: 0 } },
+    ],
+  };
+  const a = computeAnalytics(f);
+  assert.equal(a.topKills[0].playerId, 'p1');
+  assert.equal(a.topKills[0].total, 20);
+  assert.equal(a.topDeaths[0].playerId, 'p3'); // 14 deaths
+  assert.equal(a.topFirstBloods[0].playerId, 'p1'); // 4 FB
+  assert.equal(a.topPlants[0].playerId, 'p2'); // 5 plants
 });
